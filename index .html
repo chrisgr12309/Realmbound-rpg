@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Realmbound RPG v7</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;height:100vh;overflow:hidden;background:#14251d;color:#fff;font-family:system-ui;touch-action:none}
+canvas{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;display:block;z-index:0}
+.panel{background:#101a2bea;border:1px solid #ffffff30;border-radius:12px;padding:9px 11px;box-shadow:0 4px 15px #0005}
+#hud{position:fixed;z-index:2;top:max(6px,env(safe-area-inset-top));left:6px;right:6px;display:flex;justify-content:space-between;gap:5px;pointer-events:none}
+#stats{width:min(235px,62vw);font-size:12px}#areaBox{text-align:right;font-size:12px}
+.bar{height:7px;background:#354052;border-radius:8px;overflow:hidden;margin:3px 0 5px}.fill{height:100%}#hpFill{background:#ef626b}#xpFill{background:#59b9f4}
+#buttonsTop{position:fixed;z-index:4;top:88px;right:6px;display:flex;gap:3px}
+button{color:white;background:#253c57;border:1px solid #ffffff44;border-radius:9px;padding:6px 7px;font-size:11px;font-weight:650}
+#quest{position:fixed;z-index:5;top:88px;left:6px;font-size:10px;max-width:42vw;padding:6px 8px;cursor:pointer;pointer-events:auto;text-align:left;color:white}
+#pad{position:fixed;z-index:4;bottom:max(8px,env(safe-area-inset-bottom));left:8px;display:grid;grid-template-columns:38px 38px 38px;grid-template-rows:36px 36px;gap:3px}
+.move{background:#111c2ddd;font-size:16px;padding:0;touch-action:none;min-width:0;min-height:0}#up{grid-column:2}#left{grid-column:1;grid-row:2}#down{grid-column:2;grid-row:2}#right{grid-column:3;grid-row:2}
+#act{position:fixed;z-index:4;bottom:max(8px,env(safe-area-inset-bottom));right:8px;display:flex;gap:5px;align-items:end}
+.action{width:48px;height:48px;min-width:0;min-height:0;padding:3px;border-radius:50%;background:#81433c;font-size:9px;touch-action:none}#skillBtn{background:#57458c}#hint{position:fixed;z-index:2;bottom:91px;left:50%;transform:translateX(-50%);font-size:9px;background:#111b;padding:5px 7px;border-radius:10px;white-space:nowrap;max-width:95vw;text-align:center}
+#modal{display:none;position:fixed;z-index:10;inset:0;background:#07111de8;align-items:center;justify-content:center;padding:14px}
+.card{background:#192a40;border:1px solid #ffffff44;border-radius:17px;padding:17px;width:min(440px,100%);max-height:88dvh;overflow:auto}
+.classGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.classCard{padding:11px;background:#263d59;border:1px solid #ffffff35;border-radius:12px;text-align:left}.classCard b{display:block;margin-bottom:4px}.classCard small{color:#c7d3e3}
+#toast{display:none;position:fixed;z-index:12;top:48%;left:50%;transform:translate(-50%,-50%);background:#101a2bf2;border:1px solid #ffffff55;padding:12px 16px;border-radius:12px;text-align:center}
+</style></head><body>
+<canvas id="c"></canvas>
+<div id="hud">
+ <div id="stats" class="panel"><b id="who">Warrior · Lv. 1</b><div>❤️ <span id="hp">120/120</span></div><div class="bar"><div id="hpFill" class="fill"></div></div><div>XP <span id="xp">0/35</span></div><div class="bar"><div id="xpFill" class="fill"></div></div></div>
+ <div id="areaBox" class="panel"><b id="area">Startweide</b><br>🪙 <span id="coins">0</span><br>⚔️ <span id="dmg">15</span> schade</div>
+</div>
+<button id="quest" class="panel" type="button">📜 <b>Questbord</b><br><span id="kills">0/3</span> monsters verslagen<br><small>Tik voor alle quests</small></button>
+<div id="saveStatus" style="position:fixed;top:134px;right:9px;font-size:10px;color:#d9f4df;text-shadow:0 1px 3px #000">Auto-save actief</div>
+<div id="buttonsTop"><button onclick="showPanel('classes')">Classes</button><button onclick="showPanel('stats')">Stats</button><button onclick="saveGame();toast('Voortgang opgeslagen!')">Save</button></div>
+<div id="hint">Zoek Beginner Village · PRAAT bij NPC's · Aanval en skill</div>
+<div id="pad"><button class="move" id="up">▲</button><button class="move" id="left">◀</button><button class="move" id="down">▼</button><button class="move" id="right">▶</button></div>
+<div id="act"><button class="action" id="interact">PRAAT</button><button class="action" id="skillBtn">SKILL</button><button class="action" id="attack">AANVAL</button></div>
+<div id="toast"></div>
+<div id="modal"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h2 id="modalTitle">Classes</h2><button onclick="hidePanel()">✕</button></div><div id="modalBody"></div></div></div>
+
+<script>
+/* Mobile input and save support */
+(function(){
+  const STORE_KEY = "realmbound_save_v3";
+  let loaded = null;
+  try { loaded = JSON.parse(localStorage.getItem(STORE_KEY) || "null"); } catch(e) {}
+  window.__rbLoaded = loaded;
+  let saveTimer=null;
+  window.__rbSave = function(data){
+    clearTimeout(saveTimer); saveTimer=setTimeout(()=>{ try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(data));
+      const s=document.getElementById("saveStatus");
+      if(s) s.textContent="Opgeslagen ✓";
+    } catch(e) {
+      const s=document.getElementById("saveStatus");
+      if(s) s.textContent="Opslaan niet beschikbaar in deze browser";
+    } },250);
+  };
+  window.__rbClear = function(){
+    try { localStorage.removeItem(STORE_KEY); } catch(e) {}
+  };
+  document.addEventListener("contextmenu",e=>e.preventDefault());
+})();
+</script>
+
+<script>
+(()=>{
+const c=document.getElementById('c'),g=c.getContext('2d');let W,H,D=1;
+function resize(){W=innerWidth;H=innerHeight;D=Math.min(devicePixelRatio||1,2);c.width=W*D;c.height=H*D;g.setTransform(D,0,0,D,0,0)}addEventListener('resize',resize);resize();
+const world={w:1700,h:1250};
+const classes={
+ Warrior:{hp:120,damage:15,speed:3.1,skill:'Draaiende slag',desc:'Veel HP en sterke zwaardaanvallen',color:'#e9c38a'},
+ Mage:{hp:85,damage:19,speed:2.9,skill:'Arcane bol',desc:'Magische aanval op middellange afstand',color:'#8dc8ff'},
+ Archer:{hp:95,damage:14,speed:3.5,skill:'Dubbele pijl',desc:'Snelle aanvallen op afstand',color:'#9be39b'},
+ Assassin:{hp:90,damage:17,speed:4,skill:'Schaduwsteek',desc:'Snel en hoge aanvalsschade',color:'#c6a0ec'},
+ Paladin:{hp:135,damage:12,speed:2.8,skill:'Heilige golf',desc:'Veel HP en een genezende kracht',color:'#ffe08a'},
+ Berserker:{hp:145,damage:22,speed:2.7,skill:'Woede-uitbarsting',desc:'Zeer hoge schade, maar langzaam',color:'#e36a58'},
+ Ninja:{hp:82,damage:18,speed:4.5,skill:'Schaduwstorm',desc:'Heel snel, maar weinig HP',color:'#9a9cae'},
+ Pirate:{hp:110,damage:16,speed:3.3,skill:'Kanonschot',desc:'Gebalanceerd en extra muntbeloningen',color:'#d5b66c'}
+};
+let chosen='Warrior',p={x:270,y:310,hp:120,max:120,damage:15,speed:3.1,level:1,xp:0,next:35,coins:0,skillPoints:0,kills:0,questClaimed:false,inventory:[],questFlags:{},crafts:0},keys={},mobs=[],cam={x:0,y:0},last=0;
+const saved=window.__rbLoaded;
+if(saved){
+  if(classes[saved.chosen]) chosen=saved.chosen;
+  Object.assign(p, saved.player || {});
+  const cl=classes[chosen];
+  p.speed=cl.speed; p.inventory=p.inventory||[]; p.questFlags=p.questFlags||{}; p.crafts=p.crafts||0;
+}
+function saveGame(){
+  window.__rbSave({chosen,player:{x:p.x,y:p.y,hp:p.hp,max:p.max,damage:p.damage,level:p.level,xp:p.xp,next:p.next,coins:p.coins,skillPoints:p.skillPoints,kills:p.kills,questClaimed:p.questClaimed,inventory:p.inventory,questFlags:p.questFlags,crafts:p.crafts}});
+}
+
+const zones=[
+ {name:'Beginner Forest',x:0,y:0,w:650,h:1250,min:1,max:3,kind:'slime'},
+ {name:'Oud Bos',x:650,y:0,w:550,h:1250,min:2,max:4,kind:'wolf'},
+ {name:'Rotsvallei',x:1200,y:0,w:500,h:1250,min:3,max:5,kind:'golem'}
+];
+const trees=[];for(let i=0;i<75;i++){let x=(i*181+91)%world.w,y=(i*293+57)%world.h;trees.push({x,y,r:14+i%4*3})}
+function zoneAt(x){return zones.find(z=>x>=z.x&&x<z.x+z.w)||zones[2]}
+function spawn(x,y,z){let lv=z.min+Math.floor(Math.random()*(z.max-z.min+1));let type=z.kind;let base=type==='slime'?32:type==='wolf'?48:65;mobs.push({x,y,lv,type,hp:base+lv*9,max:base+lv*9,damage:3+lv*2,r:type==='golem'?19:14,hit:0,dead:0})}
+for(const z of zones)for(let i=0;i<10;i++)spawn(z.x+65+Math.random()*(z.w-120),100+Math.random()*1050,z);
+const village={x:300,y:850,r:115};
+function nearVillage(){return Math.hypot(p.x-village.x,p.y-village.y)<165}
+function interact(){
+ if(nearVillage()){openVillage();return}
+ if(Math.hypot(p.x-300,p.y-650)<85){toast('Bordje: Beginner Village ↓');return}
+ toast('Geen NPC dichtbij. Zoek het dorp in het zuiden!')
+}
+function openVillage(){
+ p.questFlags.visited=true;saveGame();
+ document.getElementById('modalTitle').textContent='Beginner Village';
+ const body=document.getElementById('modalBody');
+ body.innerHTML=`<p>Welkom in Beginner Village! Praat met de bewoners.</p>
+ <button onclick="villageShop('buy')">🛒 Winkel — koop drankjes</button>
+ <button onclick="villageShop('sell')">💰 Verkopen — verkoop loot</button>
+ <button onclick="villageShop('craft')">🔨 Crafting — maak uitrusting</button>
+ <button onclick="showPanel('classes')">⚔️ Class trainer — wissel class</button>
+ <button onclick="showPanel('quests')">📜 Questbord</button>`;
+ document.getElementById('modal').style.display='flex';
+}
+function villageShop(mode){
+ const body=document.getElementById('modalBody');
+ document.getElementById('modalTitle').textContent=mode==='buy'?'Winkel':mode==='sell'?'Verkopen':'Crafting';
+ if(mode==='buy') body.innerHTML=`<p>Rode drank — herstel 45 HP. Kosten: 20 munten.</p><button onclick="buyPotion()">Koop drankje (20 🪙)</button>`;
+ if(mode==='sell') body.innerHTML=`<p>Je loot: ${p.inventory.length? p.inventory.join(', '):'nog niets'}</p><button onclick="sellLoot()">Verkoop alle loot (+8 munten per item)</button>`;
+ if(mode==='craft') body.innerHTML=`<p>Maak een bosamulet met 2 loot-items. Geeft +3 schade.</p><p>Loot in tas: ${p.inventory.length}</p><button onclick="craftAmulet()">Craft bosamulet (2 items)</button>`;
+}
+window.buyPotion=()=>{if(p.coins<20){toast('Niet genoeg munten!');return}p.coins-=20;p.inventory.push('Rode drank');toast('Rode drank gekocht!');hud();villageShop('buy');saveGame()};
+window.sellLoot=()=>{const items=p.inventory.filter(x=>x!=='Rode drank'&&x!=='Bosamulet');if(!items.length){toast('Geen loot om te verkopen');return}p.coins+=items.length*8;p.inventory=p.inventory.filter(x=>x==='Rode drank'||x==='Bosamulet');toast('Loot verkocht!');hud();villageShop('sell');saveGame()};
+window.craftAmulet=()=>{if(p.inventory.length<2){toast('Je hebt 2 loot-items nodig');return}p.inventory.splice(0,2);p.inventory.push('Bosamulet');p.damage+=3;p.crafts++;toast('Bosamulet gemaakt: +3 schade!');hud();villageShop('craft');saveGame()};
+function toast(t){let e=document.getElementById('toast');e.textContent=t;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display='none',1600)}
+function hud(){document.getElementById('who').textContent=chosen+' · Lv. '+p.level;document.getElementById('hp').textContent=Math.ceil(p.hp)+'/'+p.max;document.getElementById('hpFill').style.width=p.hp/p.max*100+'%';document.getElementById('xp').textContent=p.xp+'/'+p.next;document.getElementById('xpFill').style.width=p.xp/p.next*100+'%';document.getElementById('coins').textContent=p.coins;document.getElementById('dmg').textContent=p.damage;document.getElementById('kills').textContent=Math.min(p.kills,3)+'/3';let z=zoneAt(p.x);document.getElementById('area').textContent=(nearVillage()?'Beginner Village':z.name)+' · Lv.'+z.min+'-'+z.max;saveGame()}
+function gain(n){p.xp+=n;while(p.xp>=p.next){p.xp-=p.next;p.level++;p.next=Math.floor(p.next*1.32+8);p.max+=8;p.hp=p.max;p.damage+=2;p.skillPoints++;toast('LEVEL UP! Level '+p.level+' · +1 skillpunt')}hud()}
+function selectClass(name){chosen=name;let a=classes[name];p.max=a.hp+(p.level-1)*8;p.hp=p.max;p.damage=a.damage+(p.level-1)*2;p.speed=a.speed;hidePanel();hud();saveGame();toast(name+' gekozen!')}
+function hit(skill){let reach=chosen==='Mage'||chosen==='Archer'?145:68;let targets=mobs.filter(m=>m.hp>0&&Math.hypot(m.x-p.x,m.y-p.y)<reach).sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y));if(!targets.length){toast('Geen monster dichtbij!');return}let maxTargets=skill?3:1;for(let m of targets.slice(0,maxTargets)){let amount=p.damage*(skill?2.1:1);m.hp-=amount;if(m.hp<=0){m.hp=0;m.dead=450;p.kills++;p.coins+=5+m.lv*3;
+ if(Math.random()<0.35){const drops=m.type==='slime'?['Slijmgel']:m.type==='wolf'?['Wolvenvacht']:['Ruw gesteente'];const item=drops[0];p.inventory.push(item);toast('Loot gevonden: '+item+'!')}
+ gain(10+m.lv*7)}}hud()}
+function useSkill(){if(p.skillPoints<0) return;let a=classes[chosen];if(chosen==='Paladin'){p.hp=Math.min(p.max,p.hp+35);toast('Heilige kracht: +35 HP!');hud();return}hit(true);toast(a.skill+'!')}
+function showPanel(type){let modal=document.getElementById('modal'),body=document.getElementById('modalBody');modal.style.display='flex';if(type==='quests'){document.getElementById('modalTitle').textContent='Questbord';body.innerHTML=`<p><b>1. Jacht op slijmen</b> — versla 3 monsters. Beloning: 40 XP + 25 munten. ${p.questFlags.q1?'✅ Klaar':p.kills>=3?'🎉 Voltooid':'Voortgang: '+Math.min(p.kills,3)+'/3'}</p><p><b>2. Verzamelaar</b> — vind 2 loot-items. Beloning: 30 XP + 20 munten. ${p.questFlags.q2?'✅ Klaar':'Voortgang: '+p.inventory.length+'/2'}</p><p><b>3. Eerste bezoek</b> — bezoek Beginner Village. Beloning: 20 XP + 15 munten. ${p.questFlags.q3?'✅ Klaar':'Ga naar het dorp in het zuiden.'}</p><button onclick="claimQuests()">Claim beschikbare beloningen</button>`}
+else if(type==='classes'){document.getElementById('modalTitle').textContent='Kies je class';body.innerHTML='<p>Kies een class. Je kunt later wisselen.</p><div class="classGrid">'+Object.entries(classes).map(([n,a])=>`<button class="classCard" onclick="choose('${n}')"><b>${n}</b><small>${a.desc}</small><br><small>HP ${a.hp} · Schade ${a.damage}</small></button>`).join('')+'</div>'}else{document.getElementById('modalTitle').textContent='Karakter stats';body.innerHTML=`<p><b>Class:</b> ${chosen}</p><p><b>Level:</b> ${p.level}</p><p><b>XP:</b> ${p.xp}/${p.next}</p><p><b>HP:</b> ${Math.ceil(p.hp)}/${p.max}</p><p><b>Schade:</b> ${p.damage}</p><p><b>Skillpunten:</b> ${p.skillPoints}</p><p><b>Verslagen monsters:</b> ${p.kills}</p><button onclick="upgrade()">Verbeter schade (+5, kost 1 skillpunt)</button>`}}
+window.claimQuests=()=>{
+ let msg=[];
+ if(p.kills>=3&&!p.questFlags.q1){p.questFlags.q1=true;p.coins+=25;gain(40);msg.push('Jacht op slijmen')}
+ if(p.inventory.length>=2&&!p.questFlags.q2){p.questFlags.q2=true;p.coins+=20;gain(30);msg.push('Verzamelaar')}
+ if(p.questFlags.visited&&!p.questFlags.q3){p.questFlags.q3=true;p.coins+=15;gain(20);msg.push('Eerste bezoek')}
+ toast(msg.length?'Beloningen: '+msg.join(', '):'Nog geen nieuwe beloningen');showPanel('quests');hud();saveGame();
+};
+function hidePanel(){document.getElementById('modal').style.display='none'}
+function openQuest(){
+  const done=p.kills>=3;
+  const claimed=!!p.questClaimed;
+  document.getElementById('modalTitle').textContent='Quest: Jacht op slijmen';
+  const body=document.getElementById('modalBody');
+  body.innerHTML=`<p><b>Opdracht:</b> Versla 3 monsters in de Startweide of andere gebieden.</p>
+    <p><b>Voortgang:</b> ${Math.min(p.kills,3)}/3 monsters</p>
+    <p><b>Beloning:</b> 40 XP en 25 munten</p>
+    ${claimed?'<p>✅ Questbeloning is al opgehaald!</p>':done?'<p>🎉 Opdracht voltooid! Je kunt je beloning ophalen.</p>':'<p>Versla monsters en kom hier terug om je voortgang te bekijken.</p>'}
+    <button id="questReward" ${(!done||claimed)?'disabled':''}>${claimed?'Beloning opgehaald':done?'Beloning ophalen':'Nog niet voltooid'}</button>`;
+  document.getElementById('questReward').addEventListener('click',()=>{
+    if(p.kills>=3&&!p.questClaimed){
+      p.questClaimed=true;p.coins+=25;gain(40);toast('Quest voltooid! +40 XP en +25 munten');openQuest();hud();saveGame();
+    }
+  });
+  document.getElementById('modal').style.display='flex';
+}
+document.getElementById('quest').addEventListener('click',()=>showPanel('quests'));
+window.showPanel=showPanel;window.hidePanel=hidePanel;window.choose=selectClass;window.upgrade=()=>{if(p.skillPoints){p.skillPoints--;p.damage+=5;toast('Schade verbeterd!');showPanel('stats');hud()}else toast('Nog geen skillpunten!')};
+function move(dx,dy){p.x=Math.max(20,Math.min(world.w-20,p.x+dx));p.y=Math.max(20,Math.min(world.h-20,p.y+dy))}
+function draw(){g.clearRect(0,0,W,H);cam.x=Math.max(0,Math.min(world.w-W,p.x-W/2));cam.y=Math.max(0,Math.min(world.h-H,p.y-H/2));g.save();g.translate(-cam.x,-cam.y);
+for(let x=0;x<world.w;x+=70)for(let y=0;y<world.h;y+=70){let z=zoneAt(x);g.fillStyle=z.name==='Startweide'?((x+y)%140?'#376747':'#3b704c'):z.name==='Oud Bos'?((x+y)%140?'#244b35':'#2b563b'):'#66543e';g.fillRect(x,y,70,70)}
+// borders / paths
+g.fillStyle='#9c875f';g.fillRect(0,275,world.w,35);g.fillRect(625,0,30,world.h);g.fillRect(1175,0,30,world.h);
+// Beginner Village and signpost inside Beginner Forest
+g.fillStyle='#b89b68';g.fillRect(250,800,100,95);g.fillStyle='#744b32';g.fillRect(270,825,28,35);g.fillRect(310,825,28,35);g.fillStyle='#9b493c';g.beginPath();g.moveTo(240,802);g.lineTo(300,755);g.lineTo(360,802);g.fill();
+g.fillStyle='#e6d39b';g.fillRect(292,630,8,45);g.fillStyle='#8c5a32';g.fillRect(300,630,78,25);g.fillStyle='#fff';g.font='bold 12px system-ui';g.fillText('BEGINNER VILLAGE ↓',305,647);
+g.fillStyle='#fff';g.font='bold 25px system-ui';g.fillText('BEGINNER FOREST · LV 1-3',45,70);g.fillText('OUD BOS · LV 2-4',710,70);g.fillText('ROTSVALLEI · LV 3-5',1230,70);
+for(const t of trees){g.fillStyle='#49392c';g.fillRect(t.x-4,t.y,8,16);g.fillStyle='#1d4b30';g.beginPath();g.arc(t.x,t.y,t.r,0,7);g.fill();g.fillStyle='#32734a';g.beginPath();g.arc(t.x-5,t.y-5,t.r*.6,0,7);g.fill()}
+// Village NPCs
+for(const n of [{x:270,y:785,c:'#e7d0a0',name:'Smid'},{x:335,y:785,c:'#8ac9e8',name:'Winkel'},{x:300,y:875,c:'#d6a0e8',name:'Trainer'}]){g.fillStyle=n.c;g.beginPath();g.arc(n.x,n.y,11,0,7);g.fill();g.fillStyle='white';g.font='10px system-ui';g.textAlign='center';g.fillText(n.name,n.x,n.y-17)}
+for(const m of mobs){if(m.hp<=0)continue;g.fillStyle=m.type==='slime'?'#65d58b':m.type==='wolf'?'#9ba8b3':'#b18b69';g.beginPath();g.arc(m.x,m.y,m.r,0,7);g.fill();g.fillStyle='#18231f';g.fillRect(m.x-4,m.y-3,3,3);g.fillRect(m.x+4,m.y-3,3,3);g.fillStyle='#1b1b1b';g.fillRect(m.x-19,m.y-m.r-13,38,5);g.fillStyle='#e75a60';g.fillRect(m.x-19,m.y-m.r-13,38*m.hp/m.max,5);g.fillStyle='white';g.font='11px system-ui';g.textAlign='center';g.fillText((m.type==='slime'?'Slijm':m.type==='wolf'?'Wolf':'Golem')+' Lv.'+m.lv,m.x,m.y-m.r-17)}
+g.fillStyle='#202c46';g.beginPath();g.arc(p.x,p.y+3,17,0,7);g.fill();g.fillStyle=classes[chosen].color;g.beginPath();g.arc(p.x,p.y-2,12,0,7);g.fill();g.fillStyle='#fff';g.font='12px system-ui';g.textAlign='center';g.fillText(chosen,p.x,p.y-24);g.restore();g.textAlign='left'}
+function frame(t){let dt=Math.min((t-last)/16.67||1,2);last=t;let dx=(keys.right?1:0)-(keys.left?1:0),dy=(keys.down?1:0)-(keys.up?1:0);if(dx||dy){let l=Math.hypot(dx,dy);move(dx/l*p.speed*dt,dy/l*p.speed*dt)}
+for(let m of mobs){if(m.hp<=0){
+  m.dead-=dt;
+  if(m.dead<=0){
+    let z=zones.find(z=>m.x>=z.x&&m.x<z.x+z.w)||zones[0];
+    let lv=z.min+Math.floor(Math.random()*(z.max-z.min+1));
+    let base=m.type==='slime'?32:m.type==='wolf'?48:65;
+    m.lv=lv;m.max=base+lv*9;m.hp=m.max;m.damage=3+lv*2;
+    m.x=z.x+65+Math.random()*(z.w-120);m.y=100+Math.random()*1050;m.dead=0;
+  }
+  continue;
+}let d=Math.hypot(p.x-m.x,p.y-m.y);if(d<210&&d>25){m.x+=(p.x-m.x)/d*.55*dt;m.y+=(p.y-m.y)/d*.55*dt}if(d<27){m.hit-=dt;if(m.hit<=0){p.hp-=m.damage;if(p.hp<=0){p.hp=p.max;p.x=270;p.y=310;toast('Je bent terug naar het startdorp gebracht.')}m.hit=60;hud()}}}
+draw();requestAnimationFrame(frame)}requestAnimationFrame(frame);
+function bind(id,k){
+ const el=document.getElementById(id);
+ const start=e=>{e.preventDefault();keys[k]=true;};
+ const stop=e=>{keys[k]=false;};
+ el.addEventListener('pointerdown',start);
+ window.addEventListener('pointerup',stop);
+ window.addEventListener('pointercancel',stop);
+ el.addEventListener('touchstart',start,{passive:false});
+ el.addEventListener('touchend',stop,{passive:true});
+}
+bind('up','up');bind('down','down');bind('left','left');bind('right','right');
+document.getElementById('interact').addEventListener('pointerdown',e=>{e.preventDefault();interact()});document.getElementById('attack').addEventListener('pointerdown',e=>{e.preventDefault();hit(false)});document.getElementById('skillBtn').addEventListener('pointerdown',e=>{e.preventDefault();useSkill()});
+hud();draw();document.addEventListener('visibilitychange',()=>{if(document.hidden)saveGame()});window.addEventListener('pagehide',saveGame);
+})();
+</script></body></html>
