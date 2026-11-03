@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Realmbound RPG</title>
+<style>
+:root{--panel:#111c2aee;--line:#d8c69b;--gold:#e7c77d;--blue:#263d58}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#182a24;color:#fff;font-family:system-ui,-apple-system,sans-serif;touch-action:none}
+canvas#world{position:absolute;inset:0;width:100%;height:100%;z-index:0}
+button{border:1px solid #ffffff55;border-radius:11px;background:linear-gradient(#344d68,#1b2d42);color:#fff;font-weight:700;padding:9px 10px;font-size:12px}
+button:disabled{opacity:.4}.panel{background:var(--panel);border:1px solid #ffffff42;border-radius:13px;box-shadow:0 3px 14px #0008}
+#top{position:absolute;z-index:3;top:max(6px,env(safe-area-inset-top));left:6px;right:6px;display:flex;gap:6px;justify-content:space-between;pointer-events:none}
+#profile{padding:8px 10px;width:min(245px,64vw);font-size:11px;pointer-events:auto}
+#profile strong{font-size:14px;color:var(--gold)}#portrait{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#75563a;border:2px solid var(--gold);font-size:18px;vertical-align:middle;margin-right:5px}
+.bar{height:7px;background:#34404d;border-radius:8px;overflow:hidden;margin:3px 0 5px}.fill{height:100%}#hpfill{background:#e95b68}#xpfill{background:#59b8e9}
+#rightinfo{padding:8px;text-align:right;font-size:11px;pointer-events:auto}
+#topbuttons{position:absolute;z-index:4;top:100px;right:6px;display:flex;gap:4px}
+#questpin{position:absolute;z-index:4;top:100px;left:6px;padding:7px 9px;font-size:10px;max-width:43vw;text-align:left}
+#minimap{position:absolute;z-index:3;right:8px;bottom:88px;width:116px;padding:5px;text-align:center;font-size:10px;pointer-events:none}
+#mini{width:104px;height:66px;display:block}
+#controls{position:absolute;z-index:4;left:8px;bottom:max(8px,env(safe-area-inset-bottom));display:grid;grid-template-columns:42px 42px 42px;grid-template-rows:39px 39px;gap:3px}
+#controls button{padding:0;font-size:18px;background:#101c2ddd}
+#up{grid-column:2}#left{grid-column:1;grid-row:2}#down{grid-column:2;grid-row:2}#right{grid-column:3;grid-row:2}
+#actions{position:absolute;z-index:4;right:8px;bottom:max(8px,env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(2,54px);gap:5px}
+#actions button{width:54px;height:48px;border-radius:50%;padding:2px;font-size:10px;background:#754239}
+#actions #skill{background:#51417f}#actions #talk{background:#315c50}
+#hint{position:absolute;z-index:2;bottom:94px;left:50%;transform:translateX(-50%);font-size:9px;background:#111b;padding:5px 8px;border-radius:9px;white-space:nowrap;max-width:90vw}
+#modal{display:none;position:absolute;z-index:10;inset:0;background:#06101de8;align-items:center;justify-content:center;padding:12px}
+#card{width:min(520px,100%);max-height:88dvh;overflow:auto;padding:15px;background:linear-gradient(145deg,#263b52,#142338);border:1px solid #d6c18a88;border-radius:17px}
+#card h2{font-size:19px;margin:0;color:var(--gold)}#modalhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+#body{font-size:13px;line-height:1.45}#body button{margin:4px 3px 4px 0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.entry{background:#ffffff12;border:1px solid #ffffff22;border-radius:10px;padding:9px;margin:6px 0}.entry small{color:#c9d6e2}.entry b{color:#ffe2a0}
+#toast{display:none;position:absolute;z-index:20;top:47%;left:50%;transform:translate(-50%,-50%);padding:12px 16px;background:#111c2a;border:1px solid var(--gold);border-radius:12px;text-align:center;max-width:85vw}
+#nameScreen{position:absolute;z-index:30;inset:0;background:radial-gradient(#365744,#0b1714);display:flex;align-items:center;justify-content:center;padding:20px}
+#namebox{width:min(390px,100%);padding:22px;text-align:center;background:#111c2aee;border:1px solid var(--gold);border-radius:18px}
+#namebox input{width:100%;padding:12px;border-radius:9px;border:1px solid #aaa;background:#fff;color:#111;font-size:16px;margin:10px 0}
+#namebox h1{color:var(--gold);font-size:27px;margin:0 0 6px}
+@media(max-height:650px){#hint{display:none}#minimap{bottom:80px;width:98px}#mini{width:86px;height:54px}#actions button{width:48px;height:43px}#actions{grid-template-columns:repeat(2,48px)}}
+</style></head>
+<body>
+<canvas id="world"></canvas>
+<div id="top">
+ <div id="profile" class="panel"><span id="portrait">🛡️</span><strong id="playername">Avonturier</strong><br><span id="classlevel">Warrior · Lv. 1</span><br>❤️ <span id="hptext">65/65</span><div class="bar"><div id="hpfill" class="fill"></div></div>XP <span id="xptext">0/100</span><div class="bar"><div id="xpfill" class="fill"></div></div></div>
+ <div id="rightinfo" class="panel"><b id="areaname">Beginner Forest</b><br>🪙 <span id="coins">0</span><br>⚔️ <span id="damage">7</span> DMG</div>
+</div>
+<button id="questpin" class="panel" onclick="openMenu('quests')">📜 Quest<br><span id="questsummary">Start je avontuur</span></button>
+<div id="topbuttons"><button onclick="openMenu('worldmap')">🗺 World Map</button><button onclick="openMenu('menu')">☰ Menu</button></div>
+<div id="minimap" class="panel">MINIMAP<canvas id="mini" width="208" height="132"></canvas></div>
+<div id="controls"><button id="up">▲</button><button id="left">◀</button><button id="down">▼</button><button id="right">▶</button></div>
+<div id="actions"><button id="talk">PRAAT</button><button id="skill">SKILL</button><button id="attack">AANVAL</button></div>
+<div id="hint">Loop met de pijlen · Praat bij NPC's · Aanval om dichtbij monsters te raken</div>
+<div id="modal"><div id="card"><div id="modalhead"><h2 id="title">Menu</h2><button onclick="closeMenu()">✕</button></div><div id="body"></div></div></div>
+<div id="toast"></div>
+<div id="nameScreen"><div id="namebox"><h1>REALMBOUND RPG</h1><p>Een nieuw avontuur begint…</p><input id="nameinput" maxlength="18" placeholder="Kies je naam"><button onclick="startGame()" style="width:100%">START AVONTUUR</button><p style="font-size:10px;color:#b9c6d2">Je voortgang wordt automatisch op dit apparaat opgeslagen.</p></div></div>
+<script>
+(()=>{
+'use strict';
+const $=id=>document.getElementById(id),canvas=$('world'),ctx=canvas.getContext('2d'),mini=$('mini').getContext('2d');
+let W=innerWidth,H=innerHeight,dpr=1,cam={x:0,y:0},last=0,keys={},toastTimer;
+const STORE='realmbound_complete_v1';
+const regions=[
+ {id:'beginner',name:'Beginner Forest',x:0,y:0,w:850,h:1000,min:1,max:12,kind:'forest',gate:0,desc:'Je eerste gebied met Beginner Village.'},
+ {id:'human',name:'Human Area',x:850,y:0,w:1250,h:1000,min:12,max:30,kind:'plains',gate:30,desc:'Bossen, kleine dorpjes en de hoofdstad.'},
+ {id:'elf',name:'Elven Area',x:2100,y:0,w:950,h:1000,min:30,max:70,kind:'elf',gate:30,desc:'De World Tree en de elfen.'},
+ {id:'demon',name:'Demon Area',x:3050,y:0,w:1050,h:1000,min:70,max:110,kind:'demon',gate:70,desc:'Een gevaarlijk gebied met de vier Demon Generals.'},
+ {id:'dragon',name:'Dragon Tomb',x:1850,y:1100,w:850,h:650,min:70,max:120,kind:'mountain',gate:0,desc:'Een gevaarlijke berg. De moeilijke Dragon Tomb-quest komt later.'},
+ {id:'island',name:'Lost Island',x:500,y:1150,w:750,h:550,min:25,max:65,kind:'island',gate:0,desc:'Een optioneel geheim eiland met zeldzame loot.'},
+ {id:'divine',name:'Divine Realm',x:4300,y:1150,w:950,h:650,min:120,max:180,kind:'divine',gate:0,hidden:true,desc:'Verborgen wereld van de Angels.'}
+];
+const classes={
+ Warrior:{stars:1,emoji:'🛡️',hp:65,damage:7,speed:2.6,skill:'Cleave',desc:'Gebalanceerde zwaardvechter',unlock:0},
+ Mage:{stars:1,emoji:'🔮',hp:48,damage:8,speed:2.4,skill:'Arcane Bolt',desc:'Magie en afstandsaanvallen',unlock:0},
+ Archer:{stars:1,emoji:'🏹',hp:54,damage:7,speed:2.9,skill:'Double Shot',desc:'Snelle aanvallen op afstand',unlock:0},
+ Assassin:{stars:1,emoji:'🗡️',hp:50,damage:8,speed:3.1,skill:'Shadow Strike',desc:'Snel en behendig',unlock:0},
+ Berserker:{stars:2,emoji:'🪓',hp:75,damage:9,speed:2.3,skill:'Rage',desc:'Hoge kracht, lagere snelheid',unlock:1},
+ Ninja:{stars:2,emoji:'🥷',hp:48,damage:9,speed:3.4,skill:'Shadow Storm',desc:'Zeer snel en behendig',unlock:1},
+ Pirate:{stars:2,emoji:'🏴‍☠️',hp:62,damage:8,speed:2.8,skill:'Cannon Burst',desc:'Gebalanceerde vechter en extra coins',unlock:1},
+ Paladin:{stars:2,emoji:'✨',hp:76,damage:7,speed:2.4,skill:'Holy Guard',desc:'Verdediging en genezing',unlock:1},
+ Necromancer:{stars:2,emoji:'💀',hp:50,damage:9,speed:2.4,skill:'Soul Drain',desc:'Duistere magie',unlock:1},
+ 'Beast Tamer':{stars:2,emoji:'🐺',hp:68,damage:7,speed:2.7,skill:'Call Beast',desc:'Roep een spirit-beest op',unlock:1},
+ Samurai:{stars:2,emoji:'⚔️',hp:61,damage:10,speed:2.8,skill:'Iaido',desc:'Sterke zwaardtechnieken',unlock:1},
+ Spearmaster:{stars:2,emoji:'🔱',hp:63,damage:8,speed:2.7,skill:'Spear Rush',desc:'Gespecialiseerd in speren',unlock:1},
+ 'Dragon Slayer':{stars:3,emoji:'🐉',hp:82,damage:11,speed:2.7,skill:'Dragon Breaker',desc:'Gespecialiseerd in draken',unlock:2},
+ 'Shadow Reaper':{stars:3,emoji:'🌑',hp:58,damage:12,speed:3.2,skill:'Reaper Slash',desc:'Snelle schaduw-aanvallen',unlock:2},
+ 'Arcane Knight':{stars:3,emoji:'🔮',hp:72,damage:10,speed:2.7,skill:'Arcane Blade',desc:'Magie en zwaard',unlock:2},
+ 'Dragon Mage':{stars:3,emoji:'🔥',hp:60,damage:12,speed:2.5,skill:'Dragon Flame',desc:'Drakenmagie',unlock:2},
+ 'Spirit Guardian':{stars:3,emoji:'🌿',hp:85,damage:9,speed:2.5,skill:'Spirit Wall',desc:'Spirituele bescherming',unlock:2},
+ 'Void Walker':{stars:3,emoji:'🌀',hp:58,damage:13,speed:2.8,skill:'Void Rift',desc:'Mysterieuze ruimtekrachten',unlock:2},
+ 'Divine Knight':{stars:4,emoji:'🌟',hp:100,damage:14,speed:2.7,skill:'Divine Judgment',desc:'Goddelijke verdediging en aanvallen',unlock:3},
+ 'Celestial Mage':{stars:4,emoji:'☀️',hp:72,damage:16,speed:2.5,skill:'Celestial Nova',desc:'Goddelijke magie',unlock:3},
+ 'Divine Dragon Knight':{stars:4,emoji:'🐲',hp:95,damage:16,speed:2.8,skill:'Dragon Godfall',desc:'Drakenkracht en goddelijke aanvallen',unlock:3}
+};
+let state={started:false,name:'Avonturier',class:'Warrior',x:250,y:360,level:1,xp:0,next:100,hp:65,maxHp:65,damage:7,coins:35,statPoints:0,stats:{strength:0,hp:0,agility:0,defense:0,intellect:0},inventory:[],gear:[],equipped:{weapon:null,armor:null},kills:0,bossKills:{},bossQuest:{beginner:0,human:0,elf:0,demon:0},questDone:{},unlocked:['beginner'],visited:['beginner'],unlockedClasses:['Warrior','Mage','Archer','Assassin'],achievements:[],journal:[],day:1,clock:8,skillReady:0,craftCount:0,divineProofs:[],seals:0,forgottenGods:[],creator:false,mainQuest:0};
+try{let s=JSON.parse(localStorage.getItem(STORE)||'null');if(s&&typeof s==='object')state={...state,...s,stats:{...state.stats,...s.stats},equipped:{...state.equipped,...s.equipped}}}catch(e){}
+const player={r:13};let mobs=[],npcs=[],drops=[],particles=[],bossesSpawned={};
+const itemData={
+ 'Rusty Sword':{icon:'🗡️',type:'weapon',damage:2,rank:'Common'},'Forest Bow':{icon:'🏹',type:'weapon',damage:3,rank:'Uncommon'},'Iron Blade':{icon:'⚔️',type:'weapon',damage:5,rank:'Rare'},'Slime Vest':{icon:'🟩',type:'armor',defense:2,rank:'Common'},'Wolf Armor':{icon:'🐺',type:'armor',defense:4,rank:'Uncommon'},'Golem Plate':{icon:'🪨',type:'armor',defense:7,rank:'Rare'},'Divine Edge':{icon:'✨',type:'weapon',damage:25,rank:'Divine'},'Divine Aegis':{icon:'🌟',type:'armor',defense:20,rank:'Divine'},
+ 'Slime Gel':{icon:'🟢',type:'material'},'Wolf Pelt':{icon:'🐺',type:'material'},'Iron Ore':{icon:'⛏️',type:'material'},'Divine Core':{icon:'💠',type:'material'},'Demon Key':{icon:'🗝️',type:'quest'}
+};
+const mobTypes={
+ slime:{name:'Slime',icon:'🟢',hp:24,damage:2,xp:12,coins:3,behavior:'defensive',drops:['Slime Gel','Slime Vest']},
+ goblin:{name:'Goblin',icon:'👺',hp:32,damage:3,xp:18,coins:5,behavior:'aggressive',drops:['Iron Ore','Rusty Sword']},
+ wolf:{name:'Forest Wolf',icon:'🐺',hp:42,damage:4,xp:24,coins:6,behavior:'aggressive',drops:['Wolf Pelt','Wolf Armor']},
+ elfbeast:{name:'Thorn Beast',icon:'🌳',hp:78,damage:6,xp:55,coins:12,behavior:'defensive',drops:['Iron Ore','Forest Bow']},
+ demon:{name:'Demon',icon:'👹',hp:115,damage:8,xp:90,coins:18,behavior:'aggressive',drops:['Demon Key','Golem Plate']},
+ divine:{name:'Divine Wraith',icon:'👼',hp:260,damage:13,xp:220,coins:45,behavior:'rare',drops:['Divine Core','Divine Edge']}
+};
+const bossList=[
+ {id:'beginner',name:'Forest Guardian',icon:'🌲',region:'beginner',x:690,y:700,hp:220,damage:5,xp:150,weapon:'Iron Blade',need:1},
+ {id:'human',name:'Valley Colossus',icon:'🗿',region:'human',x:1750,y:700,hp:650,damage:10,xp:400,weapon:'Forest Bow',need:2},
+ {id:'elf',name:'World Tree Guardian',icon:'🌳',region:'elf',x:2750,y:650,hp:1400,damage:16,xp:850,weapon:'Divine Aegis',need:2},
+ {id:'demon',name:'Demon King',icon:'👑',region:'demon',x:3850,y:720,hp:2600,damage:20,xp:1800,weapon:'Divine Edge',need:3}
+];
+function regionAt(x,y){return regions.find(r=>x>=r.x&&x<r.x+r.w&&y>=r.y&&y<r.y+r.h&&!r.hidden)||regions[0]}
+function save(){try{localStorage.setItem(STORE,JSON.stringify(state))}catch(e){}}
+function notify(t){$('toast').textContent=t;$('toast').style.display='block';clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').style.display='none',1900)}
+function resize(){W=innerWidth;H=innerHeight;dpr=Math.min(devicePixelRatio||1,1.5);canvas.width=W*dpr;canvas.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}
+addEventListener('resize',resize);resize();
+function startGame(){let v=$('nameinput').value.trim();if(v)state.name=v;state.started=true;$('nameScreen').style.display='none';if(!state.inventory.length)state.inventory.push('Rusty Sword','Slime Gel');if(!state.journal.includes('Aangekomen in Beginner Village'))state.journal.push('Aangekomen in Beginner Village');spawnInitial();hud();save();notify('Welkom, '+state.name+'! Praat met de NPCs in het dorp.')}
+window.startGame=startGame;
+function spawnInitial(){if(mobs.length)return;for(let i=0;i<7;i++)spawnMob(i%2?'goblin':'slime',180+Math.random()*560,120+Math.random()*780,1);for(let b of bossList.slice(0,1))spawnBoss(b.id)}
+function spawnMob(type,x,y,level){let t=mobTypes[type];mobs.push({type,x,y,level,hp:t.hp+level*5,max:t.hp+level*5,damage:t.damage+Math.floor(level*.4),cool:0,dead:false,rare:false,boss:false})}
+function spawnBoss(id){let b=bossList.find(x=>x.id===id);if(!b||mobs.some(m=>m.boss&&m.bossId===id&&!m.dead))return;mobs.push({type:'boss',boss:true,bossId:id,bossName:b.name,icon:b.icon,x:b.x,y:b.y,level:Math.max(5,state.level),hp:b.hp,max:b.hp,damage:b.damage,cool:0,dead:false,phase:1});}
+function addDrop(name,x,y){drops.push({name,x,y,life:900})}
+function grantItem(name){state.inventory.push(name);notify((itemData[name]?.icon||'📦')+' '+name+' gevonden!');}
+function xp(n){state.xp+=n;while(state.xp>=state.next){state.xp-=state.next;state.level++;state.next=Math.floor(state.next*1.24+35);state.statPoints+=3;state.maxHp+=3;state.hp=state.maxHp;state.damage+=.5;notify('LEVEL UP! Level '+state.level+' · 3 statpunten')}hud();save()}
+function stat(k){return state.stats[k]||0}
+function totalDamage(){let w=itemData[state.equipped.weapon];return Math.round(state.damage+stat('strength')*.7+(w?.damage||0))}
+function totalDefense(){let a=itemData[state.equipped.armor];return stat('defense')*.6+(a?.defense||0)}
+function hud(){let cl=classes[state.class];$('playername').textContent=state.name;$('portrait').textContent=cl.emoji;$('classlevel').textContent=state.class+' · Lv. '+state.level;$('hptext').textContent=Math.ceil(state.hp)+'/'+state.maxHp;$('hpfill').style.width=Math.max(0,state.hp/state.maxHp*100)+'%';$('xptext').textContent=state.xp+'/'+state.next;$('xpfill').style.width=state.xp/state.next*100+'%';$('coins').textContent=state.coins;$('damage').textContent=totalDamage();let r=regionAt(state.x,state.y);$('areaname').textContent=r.name;$('questsummary').textContent=state.mainQuest===0?'Praat met de dorpelingen':state.mainQuest===1?'Versla de Forest Guardian':state.mainQuest===2?'Bereik de Human Area':'Bekijk je quests';}
+function playerMove(dx,dy){let nx=Math.max(25,Math.min(5200,state.x+dx)),ny=Math.max(25,Math.min(1800,state.y+dy));let old=regionAt(state.x,state.y),next=regionAt(nx,ny);
+ if(next.id!==old.id&&!state.unlocked.includes(next.id)){let required=next.id==='human'?12:next.id==='elf'?30:next.id==='demon'?70:next.id==='divine'?120:next.id==='dragon'?70:25;if(state.level<required){notify('Je hebt level '+required+' nodig.');return}if(next.id==='human'&&state.bossQuest.beginner<1){notify('Versla eerst de Forest Guardian.');return}if(next.id==='elf'&&state.bossQuest.human<2){notify('Versla de Valley Colossus 2 keer.');return}if(next.id==='demon'&&state.bossQuest.elf<2){notify('Versla de World Tree Guardian 2 keer.');return}state.unlocked.push(next.id);notify(next.name+' ontgrendeld!')}
+ if((next.id==='human'&&state.level<12)||(next.id==='elf'&&state.level<30)||(next.id==='demon'&&state.level<70)){notify('De grens houdt je tegen.');return}
+ if((next.id==='human'&&state.bossQuest.beginner<1)||(next.id==='elf'&&state.bossQuest.human<2)||(next.id==='demon'&&state.bossQuest.elf<2)){notify('De boss-quest is nog niet voltooid.');return}
+ state.x=nx;state.y=ny;state.visited.push(next.id);if(next.id==='human')spawnBoss('human');if(next.id==='elf')spawnBoss('elf');if(next.id==='demon')spawnBoss('demon');if(!state.journal.includes('Ontdekt: '+next.name))state.journal.push('Ontdekt: '+next.name);hud();save()}
+function nearestMob(){let best=null,dist=70;for(let m of mobs){if(m.dead)continue;let d=Math.hypot(state.x-m.x,state.y-m.y);if(d<dist){best=m;dist=d}}return best}
+function attack(skill=false){let m=nearestMob();if(!m){notify('Geen monster dichtbij.');return}let dmg=totalDamage()*(skill?2.1:1);m.hp-=dmg;if(m.boss&&m.hp<m.max*.5&&m.phase===1){m.phase=2;notify(m.bossName+' gaat naar fase 2!')}particles.push({x:m.x,y:m.y,text:'-'+Math.round(dmg),life:40});if(m.hp<=0)defeat(m);hud()}
+function defeat(m){m.dead=true;let reward=m.boss?bossList.find(b=>b.id===m.bossId):mobTypes[m.type];state.kills++;if(m.boss){state.bossKills[m.bossId]=(state.bossKills[m.bossId]||0)+1;state.bossQuest[m.bossId]=(state.bossQuest[m.bossId]||0)+1;state.coins+=reward.xp/3;xp(reward.xp);if(reward.weapon)grantItem(reward.weapon);notify('Boss verslagen! '+m.bossName);if(m.bossId==='demon')state.mainQuest=3}else{state.coins+=reward.coins;xp(reward.xp);if(Math.random()<.3){let d=reward.drops[Math.floor(Math.random()*reward.drops.length)];grantItem(d)}}state.journal.push('Verslagen: '+(m.boss?m.bossName:reward.name));if(state.kills%10===0)state.achievements.push('Monster Hunter '+state.kills);hud();save()}
+function talk(){let near=npcs.find(n=>Math.hypot(state.x-n.x,state.y-n.y)<75);if(!near){let b=bossList.find(b=>Math.hypot(state.x-b.x,state.y-b.y)<100);if(b){notify('Boss: '+b.name+' · Tik AANVAL om te vechten.');return}notify('Geen NPC dichtbij. Loop naar een dorp of stad.');return}openNpc(near)}
+function openNpc(n){openMenu('npc:'+n.id)}
+function openMenu(type){$('modal').style.display='flex';let title=$('title'),body=$('body');let btn=(txt,fn)=>`<button onclick="${fn}">${txt}</button>`; 
+ if(type==='menu'){title.textContent='Avonturiersmenu';body.innerHTML=`<div class="grid">${[['Inventory','inventory'],['Stats','stats'],['Classes','classes'],['Quests','quests'],['Adventure Guild','guild'],['Monster Book','bestiary'],['Adventure Journal','journal'],['Achievements','achievements'],['World Map','worldmap'],['Dungeons','dungeons'],['Bosses','bosses'],['Shop','shop'],['Save','save'],['Nieuwe start','reset']].map(a=>`<button onclick="openMenu('${a[1]}')">${a[0]}</button>`).join('')}</div><p>Crafting kan alleen bij de smid of een andere geschikte NPC.</p>`}
+ else if(type==='npc:elder'||type==='npc:merchant'||type==='npc:blacksmith'||type==='npc:trainer'||type==='npc:healer'||type==='npc:king'||type==='npc:guild'||type==='npc:elf'||type==='npc:angel'){let id=type.split(':')[1];title.textContent=({elder:'Dorpsoudste',merchant:'Winkelier',blacksmith:'Smid',trainer:'Class Trainer',healer:'Healer',king:'King',guild:'Adventure Guild',elf:'Elf',angel:'Angel'})[id];body.innerHTML=npcContent(id)}
+ else if(type==='inventory'){title.textContent='Inventory & Equipment';body.innerHTML=`<p>🪙 ${state.coins} coins</p><h3>Equipment</h3><div class="grid">${['weapon','armor'].map(k=>`<div class="entry">${k==='weapon'?'⚔️ Wapen':'🛡️ Armor'}<br>${state.equipped[k]?(itemData[state.equipped[k]]?.icon||'📦')+' '+state.equipped[k]:'Leeg'}</div>`).join('')}</div>`+state.inventory.map((it,i)=>{let d=itemData[it]||{};return `<div class="entry">${d.icon||'📦'} <b>${it}</b> <small>${d.rank||d.type||'Quest item'}</small><br>${d.damage?'+'+d.damage+' damage ':''}${d.defense?'+'+d.defense+' defense':''}<br>${d.type==='weapon'||d.type==='armor'?`<button onclick="equip(${i})">Uitrusten</button>`:''} <button onclick="useItem(${i})">Gebruiken</button></div>`}).join('')||'<p>Je inventory is leeg.</p>'}
+ else if(type==='stats'){title.textContent='Character Stats';body.innerHTML=`<p>Level ${state.level} · Vrije punten: ${state.statPoints}</p>`+['strength','hp','agility','defense','intellect'].map(k=>`<div class="entry"><b>${k.toUpperCase()}</b>: ${stat(k)} <button onclick="spend('${k}')">+1</button></div>`).join('')+`<p>HP: ${state.maxHp} · Damage: ${totalDamage()} · Defense: ${Math.round(totalDefense())}</p>`}
+ else if(type==='classes'){title.textContent='Classes';body.innerHTML='<p>Je begint als Human. Je ras blijft altijd Human.</p>'+Object.entries(classes).map(([name,c])=>`<div class="entry">${c.emoji} <b>${name}</b> · ${'⭐'.repeat(c.stars)}<br><small>${c.desc}</small><br>${state.unlockedClasses.includes(name)?`<button onclick="chooseClass('${name}')">Kies class</button>`:`<small>🔒 ${c.unlock===1?'Class quest nodig':c.unlock===2?'Moeilijke class quest nodig':'Divine quest nodig'}</small>`}</div>`).join('')}
+ else if(type==='quests'){title.textContent='Quest Log';body.innerHTML=questHtml()}
+ else if(type==='guild'){title.textContent='Adventure Guild';body.innerHTML=`<p>Ranks: E · D · C · B · A · S · Calamity</p><p>Guild quests geven Gold en XP. Kies een opdracht:</p>${guildQuestHtml()}`}
+ else if(type==='bestiary'){title.textContent='Monster Book';body.innerHTML='<p>Monsterpictogrammen, HP, damage, gedrag en mogelijke loot.</p>'+Object.entries(mobTypes).map(([k,m])=>`<div class="entry">${m.icon} <b>${m.name}</b><br>HP ${m.hp} · DMG ${m.damage} · ${m.behavior}<br>Loot: ${m.drops.join(', ')}</div>`).join('')}
+ else if(type==='journal'){title.textContent='Adventure Journal';body.innerHTML='<p>Ontdekkingen en gebeurtenissen:</p>'+state.journal.slice(-50).map(x=>`<div class="entry">📖 ${x}</div>`).join('')}
+ else if(type==='achievements'){title.textContent='Achievements';body.innerHTML=state.achievements.map(x=>`<div class="entry">🏆 ${x}</div>`).join('')||'Nog geen achievements.'}
+ else if(type==='worldmap'){title.textContent='World Map';body.innerHTML=`<p>Rode grenzen geven belangrijke doorgangen aan. Level 30 en 70 hebben gesloten gates. Je kunt nooit naar steden teleporteren.</p><div class="entry">🌲 Beginner Forest · Lv 1–12</div><div class="entry">🏰 Human Area + hoofdstad · Lv 12–30</div><div class="entry">🌳 Elven Area + World Tree · Lv 30–70</div><div class="entry">👹 Demon Area · Lv 70+</div><div class="entry">⛰️ Dragon Tomb · moeilijke latere quest</div><div class="entry">🏝️ Lost Island · optioneel</div><div class="entry">☀️ Divine Realm · verborgen, niet op de gewone kaart</div><button onclick="closeMenu()">Terug naar wereld</button>`}
+ else if(type==='dungeons'){title.textContent='Dungeons';body.innerHTML=`<p>Dungeon ranks: E · D · C · B · A · S · Calamity.</p><p>Beginner Forest heeft geen dungeons. Andere gebieden hebben dungeons met monsters, bosses en loot.</p><button onclick="notify('Dungeonpoort gevonden in de wereld!')">Zoek dungeon</button>`}
+ else if(type==='bosses'){title.textContent='Boss quests';body.innerHTML=bossList.map(b=>`<div class="entry">${b.icon} <b>${b.name}</b><br>Verslagen: ${state.bossQuest[b.id]||0}/${b.need} · ${b.region}</div>`).join('')}
+ else if(type==='reset'){title.textContent='Nieuwe start';body.innerHTML='<p>Weet je zeker dat je helemaal opnieuw wilt beginnen? Je huidige save wordt gewist.</p><button onclick="resetGame()">Wis save en begin opnieuw</button>'}
+ else if(type==='shop'){title.textContent='Shop';body.innerHTML=`<p>Koop een potion voor 15 coins.</p><button onclick="buyPotion()">🧪 Potion · 15 coins</button><p>Items uitrusten via Inventory.</p>`}
+ else if(type==='npc:elder'){}
+ else{title.textContent='NPC';body.innerHTML=npcContent(type.replace('npc:',''))}
+}
+window.openMenu=openMenu;window.resetGame=()=>{localStorage.removeItem(STORE);location.reload()};
+function npcContent(id){if(id==='elder')return `<p>Welkom in Beginner Village, ${state.name}. De Forest Guardian bedreigt het bos.</p><button onclick="acceptQuest('beginner')">Neem de boss-quest aan</button><p>De dorpsoudste geeft ook sidequests.</p><button onclick="acceptQuest('side')">Sidequest: verzamel 3 Slime Gel</button>`;
+ if(id==='merchant')return `<p>Welkom in mijn winkel.</p><button onclick="buyPotion()">Koop potion · 15 coins</button><button onclick="sellItems()">Verkoop materialen</button>`;
+ if(id==='blacksmith')return `<p>Crafting is alleen bij NPC's beschikbaar.</p><button onclick="openMenu('crafting')">Open crafting</button>`;
+ if(id==='trainer')return `<p>Je kunt je class veranderen als je deze hebt vrijgespeeld.</p><button onclick="openMenu('classes')">Bekijk classes</button><button onclick="openMenu('stats')">Train stats</button>`;
+ if(id==='healer')return `<p>Herstel je HP voor 8 coins.</p><button onclick="heal()">Genees</button>`;
+ if(id==='king')return `<p>De koning heeft opdrachten voor ervaren avonturiers.</p><button onclick="acceptQuest('king')">Koninklijke opdracht</button>`;
+ if(id==='guild')return guildQuestHtml();
+ if(id==='elf')return `<p>De World Tree is ziek. Help de elfen met een midgame quest.</p><button onclick="acceptQuest('worldtree')">World Tree quest</button>`;
+ if(id==='angel')return `<p>Welkom in de verborgen Angel Realm. De Angels kunnen Divine Classes leren.</p><button onclick="acceptQuest('divineclass')">Vraag naar Divine Class</button>`;
+ return '<p>Welkom, avonturier.</p>'}
+function questHtml(){let q=[['Beginner: Forest Guardian',state.bossQuest.beginner+'/1'],['Human: Valley Colossus',state.bossQuest.human+'/2'],['Elven: World Tree Guardian',state.bossQuest.elf+'/2'],['Demon: Demon King',state.bossQuest.demon+'/3'],['Sidequest: 3 Slime Gel',(state.inventory.filter(x=>x==='Slime Gel').length)+'/3'],['World Tree: herstel de wortels',state.questDone.worldtree?'Voltooid':'Niet gestart'],['Divine Proofs: 4 Divine Monsters',state.divineProofs.length+'/4'],['Four Forgotten Gods',state.forgottenGods.length+'/4'],['Creator',state.creator?'Verslagen':'Nog niet']];return q.map(x=>`<div class="entry"><b>${x[0]}</b><br>${x[1]}</div>`).join('')}
+function guildQuestHtml(){return `<div class="entry">E-rank · Versla 3 monsters · beloning 35 XP + 20 Gold <button onclick="guildQuest('E')">Accepteer</button></div><div class="entry">D-rank · Versla 5 monsters · beloning 70 XP + 45 Gold <button onclick="guildQuest('D')">Accepteer</button></div><div class="entry">C-rank · Versla 1 boss · beloning 180 XP + 100 Gold <button onclick="guildQuest('C')">Accepteer</button></div><div class="entry">B/A/S/Calamity · speciale quests worden later vrijgespeeld.</div>`}
+function acceptQuest(id){state.questDone[id]=false;state.journal.push('Quest gestart: '+id);notify('Quest gestart: '+id);save()}
+function guildQuest(rank){state.questDone['guild'+rank]=false;state.journal.push('Adventure Guild '+rank+' quest geaccepteerd');notify(rank+'-rank quest geaccepteerd');closeMenu();save()}
+function chooseClass(name){if(!state.unlockedClasses.includes(name)){notify('Deze class is nog niet vrijgespeeld. Voltooi de class quest.');return}let c=classes[name];state.class=name;state.maxHp=c.hp+state.level*2;state.hp=state.maxHp;state.damage=c.damage+state.level*.3;hud();save();notify(name+' gekozen!');openMenu('classes')}
+function spend(k){if(!state.statPoints){notify('Geen statpunten');return}state.statPoints--;state.stats[k]++;if(k==='hp'){state.maxHp+=5;state.hp+=5}hud();save();openMenu('stats')}
+function equip(i){let name=state.inventory[i],d=itemData[name];if(!d)return;state.equipped[d.type]=name;notify(name+' uitgerust');hud();save();openMenu('inventory')}
+function useItem(i){let name=state.inventory[i];if(name==='Potion'){state.hp=Math.min(state.maxHp,state.hp+30);state.inventory.splice(i,1);hud();save();openMenu('inventory')}else notify('Dit item kan niet direct gebruikt worden.')}
+function buyPotion(){if(state.coins<15){notify('Niet genoeg Gold');return}state.coins-=15;state.inventory.push('Potion');hud();save();notify('Potion gekocht!')}
+function sellItems(){let mats=state.inventory.filter(x=>itemData[x]?.type==='material');if(!mats.length){notify('Geen materialen om te verkopen');return}state.coins+=mats.length*6;state.inventory=state.inventory.filter(x=>itemData[x]?.type!=='material');hud();save();notify('Materialen verkocht')}
+function heal(){if(state.coins<8){notify('Niet genoeg Gold');return}state.coins-=8;state.hp=state.maxHp;hud();save();notify('HP hersteld')}
+function craft(name){let recipes={'Iron Blade':['Iron Ore','Iron Ore'],'Wolf Armor':['Wolf Pelt','Iron Ore'],'Divine Edge':['Divine Core','Divine Core'],'Divine Aegis':['Divine Core','Divine Core']};let rec=recipes[name];if(!rec||!rec.every(x=>state.inventory.includes(x))){notify('Niet genoeg materialen');return}rec.forEach(x=>state.inventory.splice(state.inventory.indexOf(x),1));grantItem(name);state.craftCount++;save();openMenu('crafting')}
+function openCraft(){openMenu('crafting')}
+window.craft=craft;
+function spawnNpc(x,y,id,name,icon){npcs.push({x,y,id,name,icon})}
+function initNpcs(){npcs=[];spawnNpc(220,410,'elder','Village Elder','🧙');spawnNpc(285,425,'merchant','Merchant','🛒');spawnNpc(335,420,'blacksmith','Blacksmith','⚒️');spawnNpc(385,420,'trainer','Trainer','🎓');spawnNpc(435,420,'healer','Healer','💚');spawnNpc(1550,420,'king','King','👑');spawnNpc(1640,420,'guild','Adventure Guild','📜');spawnNpc(2500,410,'elf','Elf Elder','🌳');}
+function talkNear(){let n=npcs.find(n=>Math.hypot(state.x-n.x,state.y-n.y)<85);if(n){openNpc(n);return}let b=bossList.find(b=>Math.hypot(state.x-b.x,state.y-b.y)<100);if(b){spawnBoss(b.id);notify(b.name+' · versla deze boss '+b.need+' keer voor doorgang.');return}notify('Loop dichter naar een NPC.')}
+function openNpc(n){openMenu('npc:'+n.id)}
+function move(dx,dy){let len=Math.hypot(dx,dy)||1;playerMove(dx/len*classes[state.class].speed*4,dy/len*classes[state.class].speed*4)}
+function frame(t){let dt=Math.min((t-last)/16.67||1,2);last=t;let dx=(keys.right?1:0)-(keys.left?1:0),dy=(keys.down?1:0)-(keys.up?1:0);if(dx||dy)move(dx*dt,dy*dt);
+ for(let m of mobs){if(m.dead)continue;let d=Math.hypot(state.x-m.x,state.y-m.y);let behavior=m.boss?'boss':(mobTypes[m.type]?.behavior||'aggressive');if(d<190&&d>28&&behavior!=='defensive'){m.x+=(state.x-m.x)/d*.45*dt;m.y+=(state.y-m.y)/d*.45*dt}m.cool-=dt;if(d<30&&m.cool<=0){state.hp-=Math.max(1,m.damage-totalDefense()*.35);m.cool=65;if(state.hp<=0){state.hp=state.maxHp;state.x=230;state.y=360;notify('Je bent teruggekeerd naar Beginner Village.')}hud()}}
+ for(let d of drops)d.life--;drops=drops.filter(d=>d.life>0);particles.forEach(p=>p.life--);particles=particles.filter(p=>p.life>0);
+ state.clock+=dt*.004;if(state.clock>=24){state.clock=0;state.day++}
+ draw();requestAnimationFrame(frame)}
+function draw(){ctx.clearRect(0,0,W,H);cam.x=Math.max(0,Math.min(5200-W,state.x-W/2));cam.y=Math.max(0,Math.min(1800-H,state.y-H/2));ctx.save();ctx.translate(-cam.x,-cam.y);
+ for(let r of regions.filter(x=>!x.hidden)){let colors={forest:'#356847',plains:'#66804d',elf:'#286b56',demon:'#583b42',mountain:'#77766d',island:'#b49b5b',divine:'#6575a1'};ctx.fillStyle=colors[r.kind];ctx.fillRect(r.x,r.y,r.w,r.h);ctx.strokeStyle='#a6c58b33';ctx.lineWidth=2;for(let i=0;i<30;i++){let x=r.x+(i*173)%r.w,y=r.y+(i*127)%r.h;ctx.beginPath();ctx.arc(x,y,8+i%9,0,7);ctx.stroke()}}
+ // region borders and gates
+ ctx.strokeStyle='#d7c7a1';ctx.lineWidth=18;ctx.strokeRect(0,0,850,1000);ctx.strokeStyle='#e04b46';ctx.lineWidth=9;ctx.beginPath();ctx.moveTo(2100,0);ctx.lineTo(2100,390);ctx.moveTo(2100,560);ctx.lineTo(2100,1000);ctx.moveTo(3050,0);ctx.lineTo(3050,390);ctx.moveTo(3050,560);ctx.lineTo(3050,1000);ctx.stroke();ctx.fillStyle='#ffdf9a';ctx.font='bold 20px system-ui';ctx.fillText('LEVEL 30 GATE',2055,480);ctx.fillText('LEVEL 70 GATE',3010,480);
+ // paths, water and landmarks
+ ctx.fillStyle='#b4a17b';ctx.fillRect(130,450,620,18);ctx.fillRect(900,460,1100,18);ctx.fillRect(2200,470,700,18);
+ drawBuilding(250,360,'BEGINNER VILLAGE');drawBuilding(1500,350,'CAPITAL CITY');drawBuilding(2450,330,'ELVEN SETTLEMENT');drawBuilding(3750,350,'DEMON CASTLE');
+ ctx.fillStyle='#e3d49a';ctx.font='bold 30px system-ui';ctx.fillText('BEGINNER FOREST · LV 1–12',30,80);ctx.fillText('HUMAN AREA · LV 12–30',900,80);ctx.fillText('ELVEN AREA · LV 30–70',2160,80);ctx.fillText('DEMON AREA · LV 70+',3100,80);ctx.fillText('LOST ISLAND',600,1200);ctx.fillText('DRAGON TOMB',2050,1200);
+ // world tree
+ ctx.fillStyle='#5b3926';ctx.fillRect(2550,360,28,180);ctx.fillStyle='#42a878';ctx.beginPath();ctx.arc(2564,350,115,0,7);ctx.fill();ctx.fillStyle='#b8f3d5';ctx.font='bold 17px system-ui';ctx.fillText('WORLD TREE',2480,215);
+ for(let n of npcs){ctx.font='24px serif';ctx.fillText(n.icon,n.x-12,n.y+8);ctx.font='11px system-ui';ctx.fillStyle='#fff';ctx.fillText(n.name,n.x-22,n.y-17)}
+ for(let m of mobs){if(m.dead)continue;ctx.font=m.boss?'30px serif':'23px serif';ctx.textAlign='center';ctx.fillText(m.icon||mobTypes[m.type]?.icon||'👾',m.x,m.y+8);ctx.fillStyle='#111';ctx.fillRect(m.x-22,m.y-25,44,5);ctx.fillStyle='#e85d65';ctx.fillRect(m.x-22,m.y-25,44*Math.max(0,m.hp/m.max),5);ctx.fillStyle='#fff';ctx.font='10px system-ui';ctx.fillText((m.boss?m.bossName:mobTypes[m.type]?.name)+' Lv.'+m.level,m.x,m.y-31)}
+ ctx.textAlign='center';ctx.font='28px serif';ctx.fillText(classes[state.class].emoji,state.x,state.y+9);ctx.fillStyle='#fff';ctx.font='11px system-ui';ctx.fillText(state.name,state.x,state.y-22);
+ for(let p of particles){ctx.fillStyle='#ffe6a4';ctx.font='bold 16px system-ui';ctx.fillText(p.text,p.x,p.y-p.life)}
+ ctx.restore();ctx.textAlign='left';drawMini()}
+function drawBuilding(x,y,label){ctx.fillStyle='#a8875a';ctx.fillRect(x,y,100,75);ctx.fillStyle='#75463b';ctx.beginPath();ctx.moveTo(x-10,y);ctx.lineTo(x+50,y-42);ctx.lineTo(x+110,y);ctx.fill();ctx.fillStyle='#fff';ctx.font='12px system-ui';ctx.fillText(label,x-10,y+95)}
+function drawMini(){mini.clearRect(0,0,208,132);mini.fillStyle='#263b31';mini.fillRect(0,0,208,132);for(let r of regions.filter(x=>!x.hidden)){mini.fillStyle=({forest:'#41764d',plains:'#7b8954',elf:'#2e8462',demon:'#7b3e4c',mountain:'#888',island:'#bba365'})[r.kind];mini.fillRect(r.x/25,r.y/14,r.w/25,r.h/14)}mini.fillStyle='#ff5555';mini.beginPath();mini.arc(state.x/25,state.y/14,3,0,7);mini.fill()}
+function bind(id,key){let el=$(id);el.addEventListener('pointerdown',e=>{e.preventDefault();keys[key]=true});['pointerup','pointercancel','pointerleave'].forEach(ev=>el.addEventListener(ev,()=>keys[key]=false))}
+bind('up','up');bind('down','down');bind('left','left');bind('right','right');
+$('attack').addEventListener('pointerdown',e=>{e.preventDefault();attack(false)});$('skill').addEventListener('pointerdown',e=>{e.preventDefault();if(Date.now()<state.skillReady){notify('Skill is nog niet klaar');return}state.skillReady=Date.now()+9000;attack(true)});$('talk').addEventListener('pointerdown',e=>{e.preventDefault();talkNear()});
+function closeMenu(){$('modal').style.display='none'}window.closeMenu=closeMenu;
+window.equip=equip;window.useItem=useItem;window.spend=spend;window.buyPotion=buyPotion;window.sellItems=sellItems;window.heal=heal;
+$('body');
+const originalOpen=openMenu;
+window.openMenu=function(type){if(type==='crafting'){ $('modal').style.display='flex';$('title').textContent='Crafting · Blacksmith';$('body').innerHTML=`<p>Alleen beschikbaar bij de smid.</p><div class="entry">⚔️ Iron Blade · 2 Iron Ore <button onclick="craft('Iron Blade')">Craft</button></div><div class="entry">🛡️ Wolf Armor · Wolf Pelt + Iron Ore <button onclick="craft('Wolf Armor')">Craft</button></div><div class="entry">✨ Divine Edge · 2 Divine Core <button onclick="craft('Divine Edge')">Craft</button></div><div class="entry">🌟 Divine Aegis · 2 Divine Core <button onclick="craft('Divine Aegis')">Craft</button></div>`;return}
+ if(type==='worldmap'){originalOpen(type);return}
+ originalOpen(type)}
+window.openMenu=openMenu;window.resetGame=()=>{localStorage.removeItem(STORE);location.reload()};
+window.acceptQuest=acceptQuest;
+if(state.started)$('nameScreen').style.display='none';else if(state.name!=='Avonturier')$('nameinput').value=state.name;
+initNpcs();if(state.started){spawnInitial();hud()}else{hud()}
+addEventListener('pagehide',save);document.addEventListener('visibilitychange',()=>{if(document.hidden)save()});
+requestAnimationFrame(frame);
+})();
+</script></body></html>
